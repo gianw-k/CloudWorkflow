@@ -1,30 +1,70 @@
 import json
 import boto3
 import time
+import os
+from botocore.exceptions import ClientError
 
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('PedidosKFC')
+events = boto3.client('events')
+table = dynamodb.Table(os.environ.get('TABLE_NAME', 'Orders'))
+event_bus = os.environ.get('EVENT_BUS', 'orders-bus')
 
 def lambda_handler(event, context):
-    print(f"--- INICIO PAGOS --- ID: {event.get('id')}")
+    print(f"--- INICIO PAGOS (MS Pagos) --- ID: {event.get('id')}")
     
     # Validamos que llegue el ID
     if 'id' not in event:
         raise ValueError("Falta el ID del pedido")
 
-    # 1. Simular validación de pago
-    time.sleep(2)
-    payment_id = "TXN-STRIPE-OK"
+    order_id = event['id']
     
-    # 2. Actualizar DynamoDB
-    table.update_item(
-        Key={'id': event['id']},
-        UpdateExpression="SET #s = :status, paymentId = :pid",
-        ExpressionAttributeNames={'#s': 'status'},
-        ExpressionAttributeValues={':status': 'PAID', ':pid': payment_id}
-    )
+    # 1. Validar pago con Stripe (simulado pero siguiendo el flujo de integraciones)
+    # En producción, aquí se haría la llamada real a Stripe
+    time.sleep(2)  # Simular latencia de Stripe
+    payment_id = f"PAY-STRIPE-{int(time.time())}"
     
-    # 3. Retornar datos
+    # 2. Actualizar DynamoDB con el estado PAID
+    # La orden DEBE existir (creada por el backend)
+    try:
+        table.update_item(
+            Key={'id': order_id},
+            UpdateExpression="SET #s = :status, paymentId = :pid",
+            ExpressionAttributeNames={'#s': 'status'},
+            ExpressionAttributeValues={':status': 'PAID', ':pid': payment_id},
+            ConditionExpression='attribute_exists(id)'  # La orden debe existir
+        )
+        print(f"Orden {order_id} actualizada a PAID en DynamoDB")
+    except ClientError as e:
+        if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
+            error_msg = f"Orden {order_id} no existe en DynamoDB. Debe ser creada por el backend primero."
+            print(f"ERROR: {error_msg}")
+            raise ValueError(error_msg)
+        else:
+            print(f"Error actualizando DynamoDB: {str(e)}")
+            raise
+    except Exception as e:
+        print(f"Error actualizando DynamoDB: {str(e)}")
+        raise
+    
+    # 3. Enviar evento ORDER.PAID a EventBridge (como en stripe_payment.py)
+    try:
+        events.put_events(
+            Entries=[{
+                'Source': 'kfc.workflow.pagos',
+                'DetailType': 'ORDER.PAID',
+                'EventBusName': event_bus,
+                'Detail': json.dumps({
+                    'orderId': order_id,
+                    'paymentId': payment_id
+                })
+            }]
+        )
+        print(f"Evento ORDER.PAID enviado a EventBridge para orden {order_id}")
+    except Exception as e:
+        print(f"Advertencia: No se pudo enviar evento a EventBridge: {str(e)}")
+        # Continuamos porque el pago ya se procesó
+    
+    # 4. Retornar datos para el siguiente paso del workflow
     event['status'] = 'PAID'
     event['paymentId'] = payment_id
     return event

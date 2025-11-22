@@ -1,21 +1,30 @@
 import json
 import boto3
 import time
+import os
 
 dynamodb = boto3.resource('dynamodb')
-table = dynamodb.Table('PedidosKFC')
+table = dynamodb.Table(os.environ.get('TABLE_NAME', 'Orders'))
 
 def lambda_handler(event, context):
-    print(f"--- INICIO COCINA --- ID: {event.get('id')}")
+    print(f"--- INICIO COCINA (MS Cocina) --- ID: {event.get('id')}")
     
+    order_id = event['id']
+    
+    # Simular tiempo de cocción
     time.sleep(3)
     
-    table.update_item(
-        Key={'id': event['id']},
-        UpdateExpression="SET #s = :status",
-        ExpressionAttributeNames={'#s': 'status'},
-        ExpressionAttributeValues={':status': 'KITCHEN_READY'}
-    )
+    try:
+        table.update_item(
+            Key={'id': order_id},
+            UpdateExpression="SET #s = :status",
+            ExpressionAttributeNames={'#s': 'status'},
+            ExpressionAttributeValues={':status': 'KITCHEN_READY'}
+        )
+        print(f"Orden {order_id} actualizada a KITCHEN_READY en DynamoDB")
+    except Exception as e:
+        print(f"Error actualizando DynamoDB: {str(e)}")
+        raise
     
     event['status'] = 'KITCHEN_READY'
     return event
