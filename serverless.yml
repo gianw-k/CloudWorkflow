@@ -1,0 +1,45 @@
+org: gianaedo
+service: kfc-workflow
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: python3.12
+  region: us-east-1
+  # IMPORTANTE PARA ACADEMY: Usar el rol existente en lugar de crear uno nuevo
+  iam:
+    role: arn:aws:iam::${aws:accountId}:role/LabRole
+  environment:
+    TABLE_NAME: PedidosKFC
+
+functions:
+  pagos:
+    handler: functions/1_pagos.lambda_handler
+    name: kfc-workflow-pagos
+    description: Procesa el pago con Stripe simulado
+
+  cocina:
+    handler: functions/2_cocina.lambda_handler
+    name: kfc-workflow-cocina
+    description: Prepara la orden y actualiza estado
+
+  empaque:
+    handler: functions/3_empaque.lambda_handler
+    name: kfc-workflow-empaque
+    description: Empaqueta la orden lista
+
+  delivery:
+    handler: functions/4_delivery.lambda_handler
+    name: kfc-workflow-delivery
+    description: Asigna motorizado y despacha
+
+# Definición del Step Functions dentro de Serverless (Requiere plugin: serverless-step-functions)
+stepFunctions:
+  stateMachines:
+    KfcOrderFlow:
+      name: KfcOrderWorkflow
+      definition: ${file(state-machine/definition.asl.json)}
+
+plugins:
+  - serverless-step-functions

@@ -1,0 +1,11 @@
+{
+  "id": "ORD-12345",
+  "store": "KFC-MIRAFLORES",
+  "client": "Profesor AWS",
+  "total": 59.90,
+  "status": "PENDING",
+  "items": [
+    "1x Mega Bucket",
+    "4x Nuggets"
+  ]
+}
