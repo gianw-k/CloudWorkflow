@@ -6,7 +6,7 @@ provider:
   name: aws
   runtime: python3.12
   region: us-east-1
-  # Esto usa el ID de tu cuenta actual automáticamente
+  # Rol automatico
   iam:
     role: arn:aws:iam::${aws:accountId}:role/LabRole
   environment:
@@ -81,6 +81,20 @@ stepFunctions:
             Resource:
               Fn::GetAtt: [delivery, Arn]
             End: true
+# Para test de la tabla
+resources:
+  Resources:
+    PedidosTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: PedidosKFC
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
 
 plugins:
   - serverless-step-functions
