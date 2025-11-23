@@ -22,10 +22,13 @@ def lambda_handler(event, context):
     # 1. Validar pago con Stripe (simulación)
     time.sleep(2)  # Simular latencia de Stripe
     
-    # Simular rechazo de pago si el total es mayor a 500 o si el ID contiene "REJECTED"
+    # Simular rechazo de pago si:
+    # El cliente contiene "Sin Fondos" (tarjeta rechazada)
     total = event.get('total', 0)
-    if total > 500 or 'REJECTED' in order_id:
-        print(f"Pago RECHAZADO para orden {order_id} (Total: {total})")
+    client = event.get('client', '')
+    
+    if 'Sin Fondos' in client or 'sin fondos' in client.lower():
+        print(f"Pago RECHAZADO para orden {order_id} - Cliente: {client}, Total: {total}")
         # Actualizar estado a REJECTED
         try:
             table.update_item(
