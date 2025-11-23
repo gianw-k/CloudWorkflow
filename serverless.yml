@@ -1,12 +1,10 @@
+org: gianaedo
 service: kfc-workflow
-
-frameworkVersion: '3'
 
 provider:
   name: aws
   runtime: python3.12
   region: us-east-1
-  # Rol automatico
   iam:
     role: arn:aws:iam::${aws:accountId}:role/LabRole
   environment:
@@ -38,6 +36,7 @@ stepFunctions:
   stateMachines:
     KfcOrderFlow:
       name: KfcOrderWorkflow
+      role: arn:aws:iam::${aws:accountId}:role/LabRole # especificar labrole
       definition:
         Comment: "Workflow KFC: Pagos -> Cocina -> Empaque -> Delivery"
         StartAt: Procesar Pago
@@ -45,7 +44,7 @@ stepFunctions:
           Procesar Pago:
             Type: Task
             Resource:
-              Fn::GetAtt: [pagos, Arn]
+              Fn::GetAtt: [PagosLambdaFunction, Arn]
             Next: Verificar Pago
             Retry:
               - ErrorEquals: ["States.TaskFailed"]
@@ -68,24 +67,25 @@ stepFunctions:
           Cocinar Pedido:
             Type: Task
             Resource:
-              Fn::GetAtt: [cocina, Arn]
+              Fn::GetAtt: [CocinaLambdaFunction, Arn]
             Next: Empaquetar Pedido
 
           Empaquetar Pedido:
             Type: Task
             Resource:
-              Fn::GetAtt: [empaque, Arn]
+              Fn::GetAtt: [EmpaqueLambdaFunction, Arn]
             Next: Asignar Delivery
 
           Asignar Delivery:
             Type: Task
             Resource:
-              Fn::GetAtt: [delivery, Arn]
+              Fn::GetAtt: [DeliveryLambdaFunction, Arn]
             End: true
 
 plugins:
   - serverless-step-functions
 
+# Testing
 resources:
   Resources:
     # -------------------------------
