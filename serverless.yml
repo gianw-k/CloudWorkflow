@@ -82,8 +82,31 @@ stepFunctions:
             Resource:
               Fn::GetAtt: [delivery, Arn]
             End: true
-# Nota: La tabla Orders y EventBridge orders-bus se crean en kfc-integraciones
-# Este workflow usa los mismos recursos para mantener consistencia
 
 plugins:
   - serverless-step-functions
+
+resources:
+  Resources:
+    # -------------------------------
+    # DynamoDB - Orders
+    # -------------------------------
+    OrdersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Orders
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+
+    # -------------------------------
+    # EventBridge Bus
+    # -------------------------------
+    OrdersEventBus:
+      Type: AWS::Events::EventBus
+      Properties:
+        Name: orders-bus
